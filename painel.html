@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Inventário Consolidado</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e5631 0%, #2d8659 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        header h1 {
+            color: #1e5631;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            border-left: 4px solid #2d8659;
+        }
+        
+        .metric-card h3 {
+            color: #666;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        
+        .metric-card .value {
+            font-size: 2.5em;
+            color: #1e5631;
+            font-weight: bold;
+        }
+        
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .chart-container h2 {
+            color: #1e5631;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+        
+        .table-container {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        
+        .table-container h2 {
+            color: #1e5631;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        table thead {
+            background: #2d8659;
+            color: white;
+        }
+        
+        table th, table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        table tbody tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .status-ok { color: #27ae60; font-weight: bold; }
+        .status-low { color: #f39c12; font-weight: bold; }
+        .status-critical { color: #e74c3c; font-weight: bold; }
+        
+        footer {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Painel de Inventário</h1>
+            <p>Consolidação de dados de múltiplas unidades de saúde</p>
+        </header>
+        
+        <div class="metrics">
+            <div class="metric-card">
+                <h3>Total de Produtos</h3>
+                <div class="value" id="totalProducts">115</div>
+            </div>
+            <div class="metric-card">
+                <h3>Unidades Monitoradas</h3>
+                <div class="value" id="unitsMonitored">5</div>
+            </div>
+            <div class="metric-card">
+                <h3>Produtos em Falta</h3>
+                <div class="value status-critical" id="productsLacking">12</div>
+            </div>
+            <div class="metric-card">
+                <h3>Taxa de Disponibilidade</h3>
+                <div class="value status-ok" id="availabilityRate">89.6%</div>
+            </div>
+        </div>
+        
+        <div class="charts">
+            <div class="chart-container">
+                <h2>Disponibilidade por Unidade</h2>
+                <div class="chart-wrapper">
+                    <canvas id="availabilityChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h2>Status de Estoque</h2>
+                <div class="chart-wrapper">
+                    <canvas id="stockStatusChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <h2>Produtos Críticos (Abaixo do Mínimo)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Produto</th>
+                        <th>Unidade 1</th>
+                        <th>Unidade 2</th>
+                        <th>Unidade 3</th>
+                        <th>Unidade 4</th>
+                        <th>Unidade 5</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="criticalTable">
+                </tbody>
+            </table>
+        </div>
+        
+        <footer>
+            <p>📅 Última atualização: <span id="updateDate"></span></p>
+            <p>Desenvolvido com dados consolidados de inventário</p>
+        </footer>
+    </div>
+    
+    <script>
+        // Dados consolidados das 5 planilhas
+        const unidades = ['Unidade 1', 'Unidade 2 (Amb. Esp.)', 'Unidade 3', 'Unidade 4', 'Unidade 5'];
+        
+        const produtos = [
+            { nome: 'ÁGUA SANITÁRIA 5L', min: [1, 10, 2, 6, 20], disponivel: [1, 10, 1, 3, 10] },
+            { nome: 'ÁLCOOL IL 70%', min: [2, 10, 2, 8, 15], disponivel: [1, 3, 1, 4, 7] },
+            { nome: 'AROMATIZADOR AR', min: [1, 5, 2, 8, 5], disponivel: [0, 3, 0, 4, 2] },
+            { nome: 'DESINFETANTE 5L', min: [1, 10, 1, 8, 3], disponivel: [0, 10, 1, 3, 1] },
+            { nome: 'DETERGENTE 500ML', min: [0, 10, 2, 8, 15], disponivel: [1, 3, 1, 5, 5] },
+            { nome: 'ESPONJA DUPLA FACE', min: [0, 10, 4, 8, 2], disponivel: [0, 4, 2, 4, 0] },
+            { nome: 'FLANELA (30X40)', min: [0, 4, 0, 8, 10], disponivel: [0, 4, 0, 8, 5] },
+            { nome: 'PANO DE CHÃO', min: [0, 6, 3, 10, 12], disponivel: [0, 4, 1, 8, 4] },
+            { nome: 'SACO DE LIXO', min: [0, 10, 0, 10, 5], disponivel: [0, 7, 1, 13, 3] }
+        ];
+        
+        // Calcular métricas
+        function calcularMetricas() {
+            let totalDisponivel = 0;
+            let totalMinimo = 0;
+            let produtosFalta = 0;
+            
+            produtos.forEach(p => {
+                p.disponivel.forEach(d => totalDisponivel += d);
+                p.min.forEach(m => totalMinimo += m);
+                p.disponivel.forEach((d, i) => {
+                    if (d < p.min[i]) produtosFalta++;
+                });
+            });
+            
+            return {
+                disponibilidade: ((totalDisponivel / totalMinimo) * 100).toFixed(1),
+                falta: produtosFalta
+            };
+        }
+        
+        const metricas = calcularMetricas();
+        document.getElementById('availabilityRate').textContent = metricas.disponibilidade + '%';
+        document.getElementById('productsLacking').textContent = metricas.falta;
+        document.getElementById('updateDate').textContent = new Date().toLocaleDateString('pt-BR');
+        
+        // Gráfico 1: Disponibilidade por Unidade
+        const ctxAvailability = document.getElementById('availabilityChart').getContext('2d');
+        const disponibilidadePorUnidade = unidades.map((_, idx) => {
+            let total = 0, minimo = 0;
+            produtos.forEach(p => {
+                total += p.disponivel[idx];
+                minimo += p.min[idx];
+            });
+            return ((total / minimo) * 100).toFixed(1);
+        });
+        
+        new Chart(ctxAvailability, {
+            type: 'bar',
+            data: {
+                labels: unidades,
+                datasets: [{
+                    label: 'Taxa de Disponibilidade (%)',
+                    data: disponibilidadePorUnidade,
+                    backgroundColor: ['#2d8659', '#27ae60', '#3498db', '#f39c12', '#e74c3c'],
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { max: 100 } }
+            }
+        });
+        
+        // Gráfico 2: Status de Estoque
+        const ctxStatus = document.getElementById('stockStatusChart').getContext('2d');
+        let emOtimo = 0, emAlerta = 0, emCritico = 0;
+        
+        produtos.forEach(p => {
+            p.disponivel.forEach((d, i) => {
+                if (d >= p.min[i] * 1.5) emOtimo++;
+                else if (d >= p.min[i]) emAlerta++;
+                else emCritico++;
+            });
+        });
+        
+        new Chart(ctxStatus, {
+            type: 'doughnut',
+            data: {
+                labels: ['Ótimo', 'Alerta', 'Crítico'],
+                datasets: [{
+                    data: [emOtimo, emAlerta, emCritico],
+                    backgroundColor: ['#27ae60', '#f39c12', '#e74c3c']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+        
+        // Tabela de produtos críticos
+        const tbody = document.getElementById('criticalTable');
+        produtos.forEach(p => {
+            let temCritico = false;
+            p.disponivel.forEach((d, i) => {
+                if (d < p.min[i]) temCritico = true;
+            });
+            
+            if (temCritico) {
+                const tr = document.createElement('tr');
+                let html = `<td><strong>${p.nome}</strong></td>`;
+                let statusGeral = 'OK';
+                
+                p.disponivel.forEach((d, i) => {
+                    const status = d < p.min[i] ? `<span class="status-critical">${d}/${p.min[i]}</span>` : `${d}/${p.min[i]}`;
+                    html += `<td>${status}</td>`;
+                    if (d < p.min[i]) statusGeral = 'CRÍTICO';
+                });
+                
+                html += `<td><span class="status-critical">⚠️ ${statusGeral}</span></td>`;
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            }
+        });
+    </script>
+</body>
+</html>
